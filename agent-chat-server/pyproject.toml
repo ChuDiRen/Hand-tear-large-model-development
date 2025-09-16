@@ -1,0 +1,24 @@
+# Copyright (c) 2025 左岚. All rights reserved.
+[project]
+name = "agent-chat-server"
+version = "1.0.0"
+description = "智能助手聊天服务器 - 基于 LangGraph 的简化版本"
+authors = [
+    { name = "左岚", email = "zuolan@example.com" },
+]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.6.0",
+    "langchain-core>=0.3.0",
+    "python-dotenv>=1.0.1",
+]
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["agent"]
+[tool.setuptools.package-dir]
+"agent" = "src/agent"
