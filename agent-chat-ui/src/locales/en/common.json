@@ -1,0 +1,58 @@
+{
+  "app": {
+    "title": "Agent Chat",
+    "description": "Agent Chat UX by LangChain",
+    "loading": "Loading (layout)..."
+  },
+  "thread": {
+    "history": "Thread History",
+    "newChat": "New Chat",
+    "copyId": "Copy thread ID",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this conversation?",
+    "deleteSuccess": "Conversation deleted successfully",
+    "deleteError": "Failed to delete conversation",
+    "rename": "Rename",
+    "batchDelete": "Batch Delete",
+    "selectAll": "Select All",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "auth": {
+    "title": "Agent Chat",
+    "welcome": "Welcome to Agent Chat! Before you get started, you need to enter the URL of the deployment and the assistant / graph ID.",
+    "deploymentUrl": "Deployment URL",
+    "deploymentUrlDesc": "This is the URL of your LangGraph deployment. Can be a local, or production deployment.",
+    "assistantId": "Assistant / Graph ID",
+    "assistantIdDesc": "This is the ID of the graph (can be the graph name), or assistant to fetch threads from, and invoke when actions are taken.",
+    "apiKey": "LangSmith API Key",
+    "apiKeyDesc": "This is <strong>NOT</strong> required if using a local LangGraph server. This value is stored in your browser's local storage and is only used to authenticate requests sent to your LangGraph server.",
+    "continue": "Continue",
+    "required": "required",
+    "not": "NOT",
+    "apiUrl": "API URL",
+    "connect": "Connect",
+    "connecting": "Connecting...",
+    "connectionFailed": "Failed to connect to LangGraph server",
+    "connectionFailedDesc": "Please ensure your graph is running at {{url}} and your API key is correctly set (if connecting to a deployed graph)."
+  },
+  "password": {
+    "show": "Show password",
+    "hide": "Hide password"
+  },
+  "language": {
+    "switch": "Switch Language",
+    "english": "English",
+    "chinese": "中文"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "retry": "Retry",
+    "close": "Close",
+    "save": "Save",
+    "edit": "Edit",
+    "submit": "Submit"
+  }
+}

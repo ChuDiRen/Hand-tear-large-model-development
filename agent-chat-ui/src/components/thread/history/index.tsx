@@ -60,6 +60,10 @@ function ThreadList({
       try {
         const success = await deleteThread(threadToDelete);
         if (success) {
+          // 如果删除的是当前显示的对话，清空 threadId
+          if (threadToDelete === threadId) {
+            setThreadId(null);
+          }
           setDeleteDialogOpen(false);
           setThreadToDelete(null);
         }
@@ -91,17 +95,19 @@ function ThreadList({
             >
               <ContextMenu>
                 <ContextMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-[280px] items-start justify-start text-left font-normal relative group"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onThreadClick?.(t.thread_id);
-                      if (t.thread_id === threadId) return;
-                      setThreadId(t.thread_id);
-                    }}
-                  >
-                    <p className="truncate text-ellipsis pr-8">{itemText}</p>
+                  <div className="w-[280px] relative group">
+                    <Button
+                      variant="ghost"
+                      className="w-full items-start justify-start text-left font-normal pr-8"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onThreadClick?.(t.thread_id);
+                        if (t.thread_id === threadId) return;
+                        setThreadId(t.thread_id);
+                      }}
+                    >
+                      <p className="truncate text-ellipsis">{itemText}</p>
+                    </Button>
                     {/* 悬浮显示的删除按钮 */}
                     <Button
                       variant="ghost"
@@ -114,7 +120,7 @@ function ThreadList({
                     >
                       <Trash2 className="h-3 w-3 text-red-500" />
                     </Button>
-                  </Button>
+                  </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
                   <ContextMenuItem
