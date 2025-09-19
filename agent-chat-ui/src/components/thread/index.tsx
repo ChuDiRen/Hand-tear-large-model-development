@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
+
 import { ContentBlocksPreview } from "./ContentBlocksPreview";
 import {
   useArtifactOpen,
@@ -96,7 +97,7 @@ export function Thread() {
   const [threadId, _setThreadId] = useQueryState("threadId");
   const [chatHistoryOpen, setChatHistoryOpen] = useQueryState(
     "chatHistoryOpen",
-    parseAsBoolean.withDefault(false),
+    parseAsBoolean.withDefault(true), // 默认打开侧边栏
   );
   const [hideToolCalls, setHideToolCalls] = useQueryState(
     "hideToolCalls",
@@ -115,6 +116,8 @@ export function Thread() {
   } = useFileUpload();
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
+
+
 
   const stream = useStreamContext();
   const messages = stream.messages;
@@ -235,29 +238,13 @@ export function Thread() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <div className="relative hidden lg:flex">
-        <motion.div
-          className="absolute z-20 h-full overflow-hidden border-r bg-white"
-          style={{ width: 300 }}
-          animate={
-            isLargeScreen
-              ? { x: chatHistoryOpen ? 0 : -300 }
-              : { x: chatHistoryOpen ? 0 : -300 }
-          }
-          initial={{ x: -300 }}
-          transition={
-            isLargeScreen
-              ? { type: "spring", stiffness: 300, damping: 30 }
-              : { duration: 0 }
-          }
-        >
-          <div
-            className="relative h-full"
-            style={{ width: 300 }}
-          >
-            <ThreadHistory />
-          </div>
-        </motion.div>
+      {/* 固定侧边栏 - 始终可见 */}
+      <div className={cn(
+        "relative flex-shrink-0 border-r bg-white transition-all duration-300",
+        chatHistoryOpen ? "w-80" : "w-16",
+        "hidden lg:flex"
+      )}>
+        <ThreadHistory />
       </div>
 
       <div
@@ -266,30 +253,33 @@ export function Thread() {
           artifactOpen && "grid-cols-[3fr_2fr]",
         )}
       >
-        <motion.div
+        <div
           className={cn(
             "relative flex min-w-0 flex-1 flex-col overflow-hidden",
             !chatStarted && "grid-rows-[1fr]",
           )}
-          layout={isLargeScreen}
-          animate={{
-            marginLeft: chatHistoryOpen ? (isLargeScreen ? 300 : 0) : 0,
-            width: chatHistoryOpen
-              ? isLargeScreen
-                ? "calc(100% - 300px)"
-                : "100%"
-              : "100%",
-          }}
-          transition={
-            isLargeScreen
-              ? { type: "spring", stiffness: 300, damping: 30 }
-              : { duration: 0 }
-          }
         >
           {!chatStarted && (
             <div className="absolute top-0 left-0 z-10 flex w-full items-center justify-between gap-3 p-2 pl-4">
-              <div>
-                {(!chatHistoryOpen || !isLargeScreen) && (
+              <div className="lg:hidden">
+                <Button
+                  className="hover:bg-gray-100"
+                  variant="ghost"
+                  onClick={() => setChatHistoryOpen((p) => !p)}
+                >
+                  {chatHistoryOpen ? (
+                    <PanelRightOpen className="size-5" />
+                  ) : (
+                    <PanelRightClose className="size-5" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+          {chatStarted && (
+            <div className="relative z-10 flex items-center justify-between gap-3 p-2">
+              <div className="relative flex items-center justify-start gap-2">
+                <div className="absolute left-0 z-10 lg:hidden">
                   <Button
                     className="hover:bg-gray-100"
                     variant="ghost"
@@ -301,57 +291,27 @@ export function Thread() {
                       <PanelRightClose className="size-5" />
                     )}
                   </Button>
-                )}
-              </div>
-
-            </div>
-          )}
-          {chatStarted && (
-            <div className="relative z-10 flex items-center justify-between gap-3 p-2">
-              <div className="relative flex items-center justify-start gap-2">
-                <div className="absolute left-0 z-10">
-                  {(!chatHistoryOpen || !isLargeScreen) && (
-                    <Button
-                      className="hover:bg-gray-100"
-                      variant="ghost"
-                      onClick={() => setChatHistoryOpen((p) => !p)}
-                    >
-                      {chatHistoryOpen ? (
-                        <PanelRightOpen className="size-5" />
-                      ) : (
-                        <PanelRightClose className="size-5" />
-                      )}
-                    </Button>
-                  )}
                 </div>
-                <motion.button
-                  className="flex cursor-pointer items-center gap-2"
+                <button
+                  className="flex cursor-pointer items-center gap-2 lg:ml-0 ml-12"
                   onClick={() => setThreadId(null)}
-                  animate={{
-                    marginLeft: !chatHistoryOpen ? 48 : 0,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                  }}
                 >
                   <LangGraphLogoSVG
                     width={32}
                     height={32}
                   />
                   <span className="text-xl font-semibold tracking-tight">
-                    Agent Chat
+                    智能助手聊天
                   </span>
-                </motion.button>
+                </button>
               </div>
 
+              {/* 右上角新增对话按钮 - 只在有对话时显示 */}
               <div className="flex items-center gap-4">
-
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
-                  tooltip="New thread"
+                  tooltip="新建对话"
                   variant="ghost"
                   onClick={() => setThreadId(null)}
                 >
@@ -518,7 +478,7 @@ export function Thread() {
               }
             />
           </StickToBottom>
-        </motion.div>
+        </div>
         <div className="relative flex flex-col border-l">
           <div className="absolute inset-0 flex min-w-[30vw] flex-col">
             <div className="grid grid-cols-[1fr_auto] border-b p-4">
