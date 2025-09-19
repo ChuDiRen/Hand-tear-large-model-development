@@ -8,6 +8,46 @@ import { cn } from "@/lib/utils";
 
 
 import { getContentString } from "../utils";
+
+/**
+ * 生成对话总结
+ * 基于第一个用户问题和对话内容生成简洁的标题
+ */
+function generateConversationSummary(firstUserMessage: string, messages: any[]): string {
+  // 清理和截断第一个用户消息
+  let summary = firstUserMessage.trim();
+
+  // 移除常见的无意义前缀
+  const prefixesToRemove = [
+    "你好", "请问", "能否", "可以", "帮我", "我想", "我需要", "请帮助"
+  ];
+
+  for (const prefix of prefixesToRemove) {
+    if (summary.startsWith(prefix)) {
+      summary = summary.substring(prefix.length).trim();
+      break;
+    }
+  }
+
+  // 如果消息太长，智能截断
+  if (summary.length > 50) {
+    // 尝试在句号、问号、感叹号处截断
+    const sentenceEnd = summary.search(/[。？！.?!]/);
+    if (sentenceEnd > 10 && sentenceEnd < 50) {
+      summary = summary.substring(0, sentenceEnd + 1);
+    } else {
+      // 在词边界截断
+      summary = summary.substring(0, 47) + "...";
+    }
+  }
+
+  // 如果总结为空或太短，使用默认值
+  if (!summary || summary.length < 3) {
+    summary = "新对话";
+  }
+
+  return summary;
+}
 import { useQueryState, parseAsBoolean } from "nuqs";
 import {
   Sheet,
@@ -102,7 +142,8 @@ function ThreadList({
             if (firstHumanMessage) {
               const content = getContentString(firstHumanMessage.content);
               if (content && content.trim() && content !== t.thread_id) {
-                itemText = content.length > 50 ? content.substring(0, 50) + "..." : content;
+                // 生成智能总结
+                itemText = generateConversationSummary(content, t.values.messages);
               }
             }
           }

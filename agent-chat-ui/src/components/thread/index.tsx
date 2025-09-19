@@ -38,6 +38,14 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import {
+  getThreadSettings,
+  saveThreadSettings,
+  getGlobalSettings,
+  saveGlobalSettings,
+  initializeThreadSettings
+} from "@/lib/thread-settings";
+import { ThreadSettingsProvider } from "@/providers/ThreadSettings";
 
 import { ContentBlocksPreview } from "./ContentBlocksPreview";
 import {
@@ -99,10 +107,13 @@ export function Thread() {
     "chatHistoryOpen",
     parseAsBoolean.withDefault(true), // 默认打开侧边栏
   );
-  const [hideToolCalls, setHideToolCalls] = useQueryState(
-    "hideToolCalls",
-    parseAsBoolean.withDefault(false),
-  );
+  // 基于会话的隐藏工具调用设置
+  const [hideToolCalls, setHideToolCalls] = useState(() => {
+    if (threadId) {
+      return getThreadSettings(threadId).hideToolCalls;
+    }
+    return getGlobalSettings().hideToolCalls;
+  });
   const [input, setInput] = useState("");
   const {
     contentBlocks,
@@ -131,7 +142,42 @@ export function Thread() {
     // close artifact and reset artifact context
     closeArtifact();
     setArtifactContext({});
+
+    // 更新隐藏工具调用设置
+    if (id) {
+      // 切换到已有会话，加载该会话的设置
+      const threadSettings = getThreadSettings(id);
+      setHideToolCalls(threadSettings.hideToolCalls);
+    } else {
+      // 新会话，使用全局设置
+      const globalSettings = getGlobalSettings();
+      setHideToolCalls(globalSettings.hideToolCalls);
+    }
   };
+
+  // 处理隐藏工具调用设置变更
+  const handleHideToolCallsChange = (checked: boolean) => {
+    setHideToolCalls(checked);
+
+    if (threadId) {
+      // 保存到当前会话设置
+      saveThreadSettings(threadId, { hideToolCalls: checked });
+    } else {
+      // 保存到全局设置（影响新会话）
+      saveGlobalSettings({ hideToolCalls: checked });
+    }
+  };
+
+  // 监听threadId变化，更新设置
+  useEffect(() => {
+    if (threadId) {
+      const threadSettings = getThreadSettings(threadId);
+      setHideToolCalls(threadSettings.hideToolCalls);
+    } else {
+      const globalSettings = getGlobalSettings();
+      setHideToolCalls(globalSettings.hideToolCalls);
+    }
+  }, [threadId]);
 
   useEffect(() => {
     if (!stream.error) {
@@ -332,7 +378,7 @@ export function Thread() {
               )}
               contentClassName="pt-8 pb-16  max-w-3xl mx-auto flex flex-col gap-4 w-full"
               content={
-                <>
+                <ThreadSettingsProvider hideToolCalls={hideToolCalls}>
                   {messages
                     .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
                     .map((message, index) =>
@@ -364,7 +410,7 @@ export function Thread() {
                   {isLoading && !firstTokenReceived && (
                     <AssistantMessageLoading />
                   )}
-                </>
+                </ThreadSettingsProvider>
               }
               footer={
                 <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-white">
@@ -423,7 +469,7 @@ export function Thread() {
                             <Switch
                               id="render-tool-calls"
                               checked={hideToolCalls ?? false}
-                              onCheckedChange={setHideToolCalls}
+                              onCheckedChange={handleHideToolCallsChange}
                             />
                             <Label
                               htmlFor="render-tool-calls"
