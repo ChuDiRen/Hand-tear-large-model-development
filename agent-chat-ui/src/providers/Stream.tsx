@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { LangGraphLogoSVG } from "@/components/icons/langgraph";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
-import { PasswordInput } from "@/components/ui/password-input";
+
 import { getApiKey } from "@/lib/api-key";
 import { useThreads } from "./Thread";
 import { toast } from "sonner";
@@ -186,10 +186,8 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
               const formData = new FormData(form);
               const apiUrl = formData.get("apiUrl") as string;
               const assistantId = formData.get("assistantId") as string;
-              const apiKey = formData.get("apiKey") as string;
 
               setApiUrl(apiUrl);
-              setApiKey(apiKey);
               setAssistantId(assistantId);
 
               form.reset();
@@ -225,20 +223,6 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
                 className="bg-background"
                 defaultValue={assistantId || DEFAULT_ASSISTANT_ID}
                 required
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="apiKey">LangSmith API 密钥</Label>
-              <p className="text-muted-foreground text-sm">
-                如果使用本地 LangGraph 服务器，则<strong>不</strong>需要此项。此值存储在浏览器的本地存储中，仅用于验证发送到 LangGraph 服务器的请求。
-              </p>
-              <PasswordInput
-                id="apiKey"
-                name="apiKey"
-                defaultValue={apiKey ?? ""}
-                className="bg-background"
-                placeholder="lsv2_pt_..."
               />
             </div>
 
