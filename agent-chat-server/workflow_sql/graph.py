@@ -19,7 +19,7 @@ if parent_dir not in sys.path:
 
 # 使用绝对导入
 from workflow_sql.config import get_config  # 配置获取函数
-from workflow_sql.graph_builder import create_sql_agent_graph  # 图构建器
+from workflow_sql.react_graph import create_sql_react_agent  # ReAct智能体
 from workflow_sql.logging_config import setup_logging  # 日志配置
 
 
@@ -83,13 +83,15 @@ except Exception as e:
     logger.error(f"语言模型初始化失败: {e}")
     llm = None
 
-# 创建图
+# 创建ReAct智能体
 try:
     if llm is not None:
-        graph = create_sql_agent_graph(config, llm)
-        logger.info("SQL智能体图创建成功")
+        react_agent = create_sql_react_agent(config, llm)
+        # 将ReAct智能体包装为兼容的图接口
+        graph = react_agent.agent
+        logger.info("SQL ReAct智能体创建成功")
     else:
-        logger.error("无法创建图：语言模型未初始化")
+        logger.error("无法创建智能体：语言模型未初始化")
         # 创建一个简单的错误图
         from langgraph.graph import StateGraph, MessagesState, START, END
         from langchain_core.messages import AIMessage
@@ -106,7 +108,7 @@ try:
         logger.info("创建了错误处理图")
 
 except Exception as e:
-    logger.error(f"图创建失败: {e}")
+    logger.error(f"智能体创建失败: {e}")
     # 最后的备用方案
     from langgraph.graph import StateGraph, MessagesState, START, END
     from langchain_core.messages import AIMessage
