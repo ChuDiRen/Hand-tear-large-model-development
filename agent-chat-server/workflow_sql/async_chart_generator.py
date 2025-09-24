@@ -6,14 +6,11 @@
 
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional
-
-from langchain_core.messages import BaseMessage, AIMessage
-from langgraph.prebuilt import create_react_agent
-
+import os
 # 修复相对导入问题，使用绝对导入
 import sys
-import os
+
+from langgraph.prebuilt import create_react_agent
 
 # 添加当前目录到Python路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +18,6 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from workflow_sql.mcp_client import mcp_client_manager  # MCP客户端管理器
 from workflow_sql.mcp_config import mcp_config  # MCP配置
 
 logger = logging.getLogger(__name__)

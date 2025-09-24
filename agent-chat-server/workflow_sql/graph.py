@@ -6,10 +6,8 @@
 
 import logging
 import os
-
 # 修复相对导入问题，使用绝对导入
 import sys
-import os
 
 # 添加当前目录到Python路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +19,7 @@ if parent_dir not in sys.path:
 from workflow_sql.config import get_config  # 配置获取函数
 from workflow_sql.react_graph import create_sql_react_agent  # ReAct智能体
 from workflow_sql.logging_config import setup_logging  # 日志配置
+from langgraph.graph import StateGraph, MessagesState, END
 
 
 # 初始化配置
@@ -83,13 +82,26 @@ except Exception as e:
     logger.error(f"语言模型初始化失败: {e}")
     llm = None
 
+# 全局变量存储智能体实例
+_react_agent = None
+
 # 创建ReAct智能体
 try:
     if llm is not None:
-        react_agent = create_sql_react_agent(config, llm)
-        # 将ReAct智能体包装为兼容的图接口
-        graph = react_agent.agent
+        _react_agent = create_sql_react_agent(config, llm)
         logger.info("SQL ReAct智能体创建成功")
+
+        # 创建标准的LangGraph图
+        def sql_react_node(state: MessagesState) -> MessagesState:
+            """SQL ReAct智能体节点，包含图表生成功能"""
+            return _react_agent.invoke(state)
+
+        # 构建标准图
+        workflow = StateGraph(MessagesState)
+        workflow.add_node("sql_react", sql_react_node)
+        workflow.set_entry_point("sql_react")
+        workflow.add_edge("sql_react", END)
+        graph = workflow.compile()
     else:
         logger.error("无法创建智能体：语言模型未初始化")
         # 创建一个简单的错误图
@@ -136,11 +148,20 @@ def run_example() -> None:
     logger.info(f"运行示例查询: {question}")
 
     try:
-        for step in graph.stream(
-            {"messages": [{"role": "user", "content": question}]},
-            stream_mode="values",
-        ):
-            step["messages"][-1].pretty_print()
+        # 如果有智能体实例，使用智能体的stream方法保留图表生成功能
+        if _react_agent is not None:
+            for step in _react_agent.stream(
+                {"messages": [{"role": "user", "content": question}]},
+                stream_mode="values",
+            ):
+                step["messages"][-1].pretty_print()
+        else:
+            # 否则使用标准图
+            for step in graph.stream(
+                {"messages": [{"role": "user", "content": question}]},
+                stream_mode="values",
+            ):
+                step["messages"][-1].pretty_print()
     except Exception as e:
         logger.error(f"运行示例时出错: {e}")
         raise

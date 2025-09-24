@@ -328,13 +328,58 @@ const defaultComponents: any = {
   },
 };
 
-const MarkdownTextImpl: FC<{ children: string }> = ({ children }) => {
+interface MarkdownTextProps {
+  children: string;
+  disableChartRendering?: boolean; // 禁用图表渲染
+}
+
+const MarkdownTextImpl: FC<MarkdownTextProps> = ({ children, disableChartRendering = false }) => {
+  // 创建动态组件配置
+  const components: any = {
+    ...defaultComponents,
+    a: ({ className, href, children, ...props }: {
+      className?: string;
+      href?: string;
+      children?: React.ReactNode;
+    }) => {
+      // 如果禁用图表渲染，或者不是图表链接，使用普通链接
+      if (disableChartRendering || !href || !isChartUrl(href)) {
+        return (
+          <a
+            className={cn(
+              "text-primary font-medium underline underline-offset-4",
+              className,
+            )}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            {...props}
+          >
+            {children}
+          </a>
+        );
+      }
+
+      // 启用图表渲染时，渲染图表（链接形式）
+      return <ChartImage src={href} alt={typeof children === 'string' ? children : '图表'} />;
+    },
+    img: ({ src, alt, className, ...props }: { src?: string; alt?: string; className?: string }) => {
+      // 无地址或非图表类图片，正常渲染
+      if (!src || !isChartUrl(src)) {
+        return <img src={src} alt={alt} className={className} {...props} />;
+      }
+      // 图表类图片：若禁用渲染，则不显示；否则用 ChartImage 渲染
+      if (disableChartRendering) return null;
+      return <ChartImage src={src} alt={alt} />;
+    }
+  };
+
   return (
     <div className="markdown-content">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
-        components={defaultComponents}
+        components={components}
       >
         {children}
       </ReactMarkdown>

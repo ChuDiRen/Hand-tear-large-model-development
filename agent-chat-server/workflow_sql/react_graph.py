@@ -6,11 +6,10 @@
 
 import logging
 import os
-from typing import Any
-
 # 修复相对导入问题
 import sys
-import os
+from typing import Any
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
@@ -132,21 +131,37 @@ class SQLReActAgent:
     
     def stream(self, state: MessagesState, **kwargs):
         """流式处理用户请求
-        
+
         Args:
             state: 包含用户消息的状态
             **kwargs: 额外的流式处理参数
-            
+
         Yields:
             流式响应数据
         """
         try:
             logger.info("开始流式处理SQL查询请求")
-            
+
+            # 收集所有流式响应
+            final_result = None
+
             # 使用ReAct智能体的流式处理
             for chunk in self.agent.stream(state, **kwargs):
+                final_result = chunk  # 保存最后的结果
                 yield chunk
-                
+
+            # 检查是否需要生成图表
+            if final_result:
+                should_generate_chart = self._should_generate_chart(final_result)
+
+                if should_generate_chart:
+                    logger.info("检测到需要生成图表，启动异步图表生成")
+                    chart_result = self._generate_chart_async(final_result)
+                    if chart_result:
+                        # 将图表结果作为额外的流式响应返回
+                        chart_chunk = self._append_chart_result(final_result, chart_result)
+                        yield chart_chunk
+
         except Exception as e:
             logger.error(f"流式处理SQL查询请求失败: {e}")
             # 返回错误消息

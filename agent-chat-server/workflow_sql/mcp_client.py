@@ -5,10 +5,10 @@
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
-from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.tools import BaseTool
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 try:
     # 当作为模块导入时使用相对导入

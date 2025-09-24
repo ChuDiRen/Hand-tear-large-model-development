@@ -5,14 +5,13 @@
 """
 
 import logging
+import os
+# 修复相对导入问题，使用绝对导入
+import sys
 from typing import Any
 
 from langchain_core.language_models import BaseLanguageModel
 from langgraph.graph import START, MessagesState, StateGraph
-
-# 修复相对导入问题，使用绝对导入
-import sys
-import os
 
 # 添加当前目录到Python路径
 current_dir = os.path.dirname(os.path.abspath(__file__))

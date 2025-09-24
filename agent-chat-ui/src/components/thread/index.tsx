@@ -8,6 +8,7 @@ import { Button } from "../ui/button";
 import { Checkpoint, Message } from "@langchain/langgraph-sdk";
 import { AssistantMessage, AssistantMessageLoading } from "./messages/ai";
 import { HumanMessage } from "./messages/human";
+import { SmartMessageRenderer } from "./smart-message-renderer";
 import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
@@ -114,6 +115,14 @@ export function Thread() {
     }
     return getGlobalSettings().hideToolCalls;
   });
+
+  // 智能渲染模式设置
+  const [useSmartRenderer, setUseSmartRenderer] = useState(() => {
+    if (threadId) {
+      return getThreadSettings(threadId).useSmartRenderer ?? true; // 默认启用
+    }
+    return getGlobalSettings().useSmartRenderer ?? true;
+  });
   const [input, setInput] = useState("");
   const {
     contentBlocks,
@@ -168,11 +177,25 @@ export function Thread() {
     }
   };
 
+  // 处理智能渲染模式设置变更
+  const handleSmartRendererChange = (checked: boolean) => {
+    setUseSmartRenderer(checked);
+
+    if (threadId) {
+      // 保存到当前会话设置
+      saveThreadSettings(threadId, { useSmartRenderer: checked });
+    } else {
+      // 保存到全局设置（影响新会话）
+      saveGlobalSettings({ useSmartRenderer: checked });
+    }
+  };
+
   // 监听threadId变化，更新设置
   useEffect(() => {
     if (threadId) {
       const threadSettings = getThreadSettings(threadId);
       setHideToolCalls(threadSettings.hideToolCalls);
+      setUseSmartRenderer(threadSettings.useSmartRenderer ?? true);
     } else {
       const globalSettings = getGlobalSettings();
       setHideToolCalls(globalSettings.hideToolCalls);
@@ -378,38 +401,11 @@ export function Thread() {
               )}
               contentClassName="pt-8 pb-16  max-w-3xl mx-auto flex flex-col gap-4 w-full"
               content={
-                <ThreadSettingsProvider hideToolCalls={hideToolCalls}>
-                  {messages
-                    .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
-                    .map((message, index) =>
-                      message.type === "human" ? (
-                        <HumanMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
-                          isLoading={isLoading}
-                        />
-                      ) : (
-                        <AssistantMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
-                          isLoading={isLoading}
-                          handleRegenerate={handleRegenerate}
-                        />
-                      ),
-                    )}
-                  {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
-                    We need to render it outside of the messages list, since there are no messages to render */}
-                  {hasNoAIOrToolMessages && !!stream.interrupt && (
-                    <AssistantMessage
-                      key="interrupt-msg"
-                      message={undefined}
-                      isLoading={isLoading}
-                      handleRegenerate={handleRegenerate}
-                    />
-                  )}
-                  {isLoading && !firstTokenReceived && (
-                    <AssistantMessageLoading />
-                  )}
+                <ThreadSettingsProvider hideToolCalls={true}>
+                  <SmartMessageRenderer
+                    messages={messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))}
+                    isLoading={isLoading}
+                  />
                 </ThreadSettingsProvider>
               }
               footer={
@@ -464,21 +460,7 @@ export function Thread() {
                       />
 
                       <div className="flex items-center gap-6 p-2 pt-4">
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              id="render-tool-calls"
-                              checked={hideToolCalls ?? false}
-                              onCheckedChange={handleHideToolCallsChange}
-                            />
-                            <Label
-                              htmlFor="render-tool-calls"
-                              className="text-sm text-gray-600"
-                            >
-                              隐藏工具调用
-                            </Label>
-                          </div>
-                        </div>
+                        <div className="hidden" />
                         <Label
                           htmlFor="file-input"
                           className="flex cursor-pointer items-center gap-2"

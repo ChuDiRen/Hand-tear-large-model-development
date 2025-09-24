@@ -6,9 +6,9 @@
 
 import logging
 import time
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from threading import Lock
+from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
