@@ -8,6 +8,7 @@ import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
 import { FC, memo, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
+import Image from "next/image";
 import { SyntaxHighlighter } from "@/components/thread/syntax-highlighter";
 
 import { TooltipIconButton } from "@/components/thread/tooltip-icon-button";
@@ -37,6 +38,68 @@ const useCopyToClipboard = ({
   };
 
   return { isCopied, copyToClipboard };
+};
+
+// 检测是否为图表链接的函数
+const isChartUrl = (url: string): boolean => {
+  const chartDomains = [
+    'mdn.alipayobjects.com',
+    'quickchart.io',
+    'chart.googleapis.com',
+    'api.chart.io',
+    'charts.mongodb.com'
+  ];
+
+  try {
+    const urlObj = new URL(url);
+    return chartDomains.some(domain => urlObj.hostname.includes(domain));
+  } catch {
+    return false;
+  }
+};
+
+// 图表图片组件
+const ChartImage: FC<{ src: string; alt?: string }> = ({ src, alt = "图表" }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <span className="block my-4">
+      {isLoading && !hasError && (
+        <span className="flex h-64 w-full max-w-4xl items-center justify-center rounded-lg bg-gray-100">
+          <span className="text-gray-500">加载图表中...</span>
+        </span>
+      )}
+      {hasError ? (
+        <span className="flex h-64 w-full max-w-4xl items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+          <span className="text-center text-gray-500">
+            <span className="block">图表加载失败</span>
+            <a
+              href={src}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 underline hover:text-blue-700"
+            >
+              点击查看原图
+            </a>
+          </span>
+        </span>
+      ) : (
+        <span className={cn("block relative w-full max-w-4xl", isLoading && "hidden")}>
+          <img
+            src={src}
+            alt={alt}
+            className="h-auto w-full max-w-4xl rounded-lg border shadow-sm"
+            onLoad={() => setIsLoading(false)}
+            onError={() => {
+              setIsLoading(false);
+              setHasError(true);
+            }}
+          />
+        </span>
+      )}
+    </span>
+  );
 };
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
@@ -118,15 +181,37 @@ const defaultComponents: any = {
       {...props}
     />
   ),
-  a: ({ className, ...props }: { className?: string }) => (
-    <a
-      className={cn(
-        "text-primary font-medium underline underline-offset-4",
-        className,
-      )}
-      {...props}
-    />
-  ),
+  a: ({
+    className,
+    href,
+    children,
+    ...props
+  }: {
+    className?: string;
+    href?: string;
+    children?: React.ReactNode;
+  }) => {
+    // 检测是否为图表链接
+    if (href && isChartUrl(href)) {
+      return <ChartImage src={href} alt={typeof children === 'string' ? children : '图表'} />;
+    }
+
+    // 普通链接的默认行为
+    return (
+      <a
+        className={cn(
+          "text-primary font-medium underline underline-offset-4",
+          className,
+        )}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        {...props}
+      >
+        {children}
+      </a>
+    );
+  },
   blockquote: ({ className, ...props }: { className?: string }) => (
     <blockquote
       className={cn("border-l-2 pl-6 italic", className)}

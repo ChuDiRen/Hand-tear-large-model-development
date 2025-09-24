@@ -192,7 +192,7 @@ function CommandItem({
   );
 }
 
-interface CommandSeparatorProps extends React.HTMLAttributes<HTMLDivElement> {}
+type CommandSeparatorProps = React.HTMLAttributes<HTMLDivElement>;
 
 function CommandSeparator({ className, ...props }: CommandSeparatorProps) {
   return (

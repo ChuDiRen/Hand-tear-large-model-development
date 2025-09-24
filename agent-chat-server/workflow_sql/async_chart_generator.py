@@ -99,15 +99,29 @@ class AsyncChartGenerator:
                 logger.info("图表生成功能已禁用")
                 return "图表生成功能当前不可用"
 
-            # 获取图表工具
-            tool_start = time.time()
-            chart_tools = await mcp_client_manager.get_chart_tools()
-            tool_time = time.time() - tool_start
-            logger.info(f"获取图表工具耗时: {tool_time:.2f}秒")
+            # 获取图表工具 - 使用简化的直接方式
+            try:
+                from langchain_mcp_adapters.client import MultiServerMCPClient
 
-            if not chart_tools:
-                logger.error("未找到图表生成工具")
-                return "图表生成工具不可用"
+                # 按照 agent/graph.py 的成功实现方式
+                client = MultiServerMCPClient({
+                    "chart": {
+                        "command": "npx",
+                        "args": ["-y", "@antv/mcp-server-chart"],
+                        "transport": "stdio"
+                    }
+                })
+
+                chart_tools = await client.get_tools()
+                logger.info(f"成功获取 {len(chart_tools)} 个图表工具")
+
+                if not chart_tools:
+                    logger.error("未找到图表生成工具")
+                    return "图表生成工具不可用"
+
+            except Exception as e:
+                logger.error(f"获取图表工具失败: {e}")
+                return f"图表生成失败：无法获取图表工具 - {str(e)}"
 
             # 确定图表类型
             chart_type = self._determine_chart_type(query_result, user_question)
@@ -147,19 +161,22 @@ class AsyncChartGenerator:
             logger.info("开始调用图表智能体")
 
             try:
-                # 设置30秒超时
+                # 设置60秒超时
                 import asyncio
                 result = await asyncio.wait_for(
                     chart_agent.ainvoke({
                         "messages": [system_message, user_message]
                     }),
-                    timeout=30.0
+                    timeout=60.0
                 )
                 agent_time = time.time() - agent_start
                 logger.info(f"图表智能体调用完成，耗时: {agent_time:.2f}秒")
             except asyncio.TimeoutError:
-                logger.warning("图表生成超时，返回简化结果")
-                return self._generate_simple_chart(query_result, user_question)
+                logger.error("图表生成超时")
+                return "图表生成失败：操作超时（60秒）"
+            except Exception as e:
+                logger.error(f"图表智能体调用失败: {e}")
+                return f"图表生成失败：{str(e)}"
 
             # 提取图表链接和内容
             chart_url = None
@@ -199,12 +216,12 @@ class AsyncChartGenerator:
                 if self._validate_chart_url(chart_url):
                     chart_result = f"图表生成完成！\n\n**图表链接：** {chart_url}\n\n## 图表说明：\n{self._generate_chart_description()}"
                 else:
-                    logger.error("图表链接验证失败，使用简化版本")
-                    chart_result = self._generate_simple_chart(query_result, user_question)
+                    logger.error("图表链接验证失败")
+                    return "图表生成失败：生成的图表链接无效"
             else:
-                # 如果没有找到链接，生成简化图表
-                logger.warning("未找到图表链接，生成简化图表")
-                chart_result = self._generate_simple_chart(query_result, user_question)
+                # 如果没有找到链接，返回失败
+                logger.error("未找到图表链接")
+                return "图表生成失败：未能生成有效的图表链接"
 
             total_time = time.time() - start_time
             logger.info(f"异步图表生成完成，总耗时: {total_time:.2f}秒")
@@ -287,102 +304,7 @@ class AsyncChartGenerator:
 点击上方链接即可查看完整的交互式图表。
         """.strip()
 
-    def _generate_simple_chart(self, query_result: str, user_question: str) -> str:
-        """生成简化的图表（使用简单的quickchart URL）"""
-        try:
-            # 解析查询结果
-            import ast
-            data = ast.literal_eval(query_result)
 
-            # 提取标签和数值（适应不同的数据结构）
-            labels = [item[0] for item in data[:5]]  # 取前5个
-
-            # 智能检测数值字段
-            if len(data[0]) >= 3:
-                # 如果有3个或更多字段，使用第3个字段（分钟数）
-                values = [round(float(item[2]), 1) for item in data[:5]]
-                unit = "分钟"
-            else:
-                # 如果只有2个字段，使用第2个字段（秒数）并转换为分钟
-                values = [round(float(item[1]) / 60, 1) for item in data[:5]]
-                unit = "分钟"
-
-            # 构建简单的图表配置
-            chart_config = {
-                "type": "bar",
-                "data": {
-                    "labels": labels,
-                    "datasets": [{
-                        "label": f"平均时长({unit})",
-                        "data": values,
-                        "backgroundColor": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"]
-                    }]
-                },
-                "options": {
-                    "responsive": True,
-                    "plugins": {
-                        "title": {
-                            "display": True,
-                            "text": "音乐类型平均时长比较"
-                        }
-                    },
-                    "scales": {
-                        "y": {
-                            "beginAtZero": True,
-                            "title": {
-                                "display": True,
-                                "text": f"平均时长({unit})"
-                            }
-                        }
-                    }
-                }
-            }
-
-            # 转换为URL编码
-            import json
-            import urllib.parse
-            config_json = json.dumps(chart_config, ensure_ascii=False)
-            encoded_config = urllib.parse.quote(config_json)
-
-            # 生成图表URL
-            chart_url = f"https://quickchart.io/chart?c={encoded_config}"
-
-            # 构建数据分析结果
-            result_lines = []
-            for i, (label, value) in enumerate(zip(labels, values)):
-                if i == 0:
-                    result_lines.append(f"- {label}：{value}{unit}（最长）")
-                else:
-                    result_lines.append(f"- {label}：{value}{unit}")
-
-            return f"""
-图表生成完成！
-
-**图表链接：** {chart_url}
-
-**数据分析结果：**
-{chr(10).join(result_lines)}
-
-**图表特点：**
-- 柱状图显示各类型的平均时长对比
-- 使用不同颜色区分各个音乐类型
-- 清晰的标题和坐标轴标签
-            """.strip()
-
-        except Exception as e:
-            logger.error(f"生成简化图表失败: {e}")
-            return f"""
-图表生成完成！
-
-**数据分析结果：**
-{query_result}
-
-**图表说明：**
-数据分析已完成，根据查询结果，科幻与奇幻类型的音乐平均时长最长。
-
-**建议：**
-您可以使用上述数据在Excel或其他工具中创建可视化图表。
-            """.strip()
 
 
 def run_async_chart_generation(llm, user_question: str, query_result: str, 

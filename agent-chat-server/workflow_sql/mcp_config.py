@@ -50,11 +50,9 @@ class MCPConfig:
         return {
             "mcp-server-chart": MCPServerConfig(
                 name="mcp-server-chart",
-                transport="sse",
-                url=os.getenv(
-                    "CHART_MCP_URL",
-                    "https://mcp.api-inference.modelscope.net/5476ab71aae748/sse"
-                )
+                transport="stdio",
+                command="npx",
+                args=["-y", "@antv/mcp-server-chart"]
             )
         }
     

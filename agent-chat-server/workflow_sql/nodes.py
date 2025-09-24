@@ -376,9 +376,11 @@ class AnswerGenerationNode(BaseNode):
         """从消息历史中提取用户的原始问题"""
         for message in messages:
             if hasattr(message, 'content') and message.content:
+                # 确保content是字符串类型
+                content = str(message.content) if not isinstance(message.content, str) else message.content
                 # 查找第一个人类消息
-                if not message.content.startswith("可用表:") and not message.content.startswith("数据库结构"):
-                    return message.content
+                if not content.startswith("可用表:") and not content.startswith("数据库结构"):
+                    return content
         return "用户问题"
 
     def _extract_query_and_result(self, messages: List[BaseMessage]) -> tuple[str, str]:
@@ -508,7 +510,8 @@ class ChartGenerationNode(BaseNode):
 
         for message in messages:
             if hasattr(message, 'content') and message.content:
-                content = message.content
+                # 确保content是字符串类型
+                content = str(message.content) if not isinstance(message.content, str) else message.content
 
                 # 提取用户问题（第一个非系统消息）
                 if not user_question and not content.startswith(("可用表:", "数据库结构", "查询执行完成")):
