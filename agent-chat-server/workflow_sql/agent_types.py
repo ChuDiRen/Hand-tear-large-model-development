@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体的类型定义模块
 
 本模块定义了SQL智能体应用中使用的核心类型、枚举和异常类。

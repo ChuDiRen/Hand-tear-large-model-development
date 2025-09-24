@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体图构建器模块
 
 本模块提供主要的图构建器类，用于构建SQL智能体工作流的LangGraph状态图。
@@ -9,18 +10,20 @@ from typing import Any
 from langchain_core.language_models import BaseLanguageModel
 from langgraph.graph import START, MessagesState, StateGraph
 
-try:
-    # 当作为模块导入时使用相对导入
-    from .config import AgentConfig
-    from .database import SQLDatabaseManager
-    from .nodes import AnswerGenerationNode, ChartGenerationNode, CheckQueryNode, GenerateQueryNode, GetSchemaNode, ListTablesNode, should_continue
-    from .tools import SQLToolManager
-except ImportError:
-    # 当直接运行时使用绝对导入
-    from config import AgentConfig
-    from database import SQLDatabaseManager
-    from nodes import AnswerGenerationNode, ChartGenerationNode, CheckQueryNode, GenerateQueryNode, GetSchemaNode, ListTablesNode, should_continue
-    from tools import SQLToolManager
+# 修复相对导入问题，使用绝对导入
+import sys
+import os
+
+# 添加当前目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from workflow_sql.config import AgentConfig  # 智能体配置
+from workflow_sql.database import SQLDatabaseManager  # 数据库管理器
+from workflow_sql.nodes import AnswerGenerationNode, ChartGenerationNode, CheckQueryNode, GenerateQueryNode, GetSchemaNode, ListTablesNode, should_continue  # 图节点
+from workflow_sql.tools import SQLToolManager  # SQL工具管理器
 
 logger = logging.getLogger(__name__)
 

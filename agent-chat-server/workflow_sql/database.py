@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体数据库管理模块
 
 本模块提供数据库连接管理和SQL操作功能。
@@ -8,14 +9,18 @@ from typing import List, Optional
 
 from langchain_community.utilities import SQLDatabase
 
-try:
-    # 当作为模块导入时使用相对导入
-    from .config import DatabaseConfig
-    from .agent_types import DatabaseConnectionError, DatabaseDialect, QueryExecutionError
-except ImportError:
-    # 当直接运行时使用绝对导入
-    from config import DatabaseConfig
-    from agent_types import DatabaseConnectionError, DatabaseDialect, QueryExecutionError
+# 修复相对导入问题，使用绝对导入
+import sys
+import os
+
+# 添加当前目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from workflow_sql.config import DatabaseConfig  # 数据库配置类
+from workflow_sql.agent_types import DatabaseConnectionError, DatabaseDialect, QueryExecutionError  # 异常和类型定义
 
 
 logger = logging.getLogger(__name__)
@@ -52,9 +57,9 @@ class SQLDatabaseManager:
                 sample_rows_in_table_info=3   # 表信息中的示例行数
             )
             self._dialect = self._detect_dialect()
-            logger.info(f"成功连接到 {self._dialect.value} 数据库")
+            logger.info(f"数据库连接成功 - 方言: {self._dialect.value}, URI: {self.config.uri}")  # 优化日志信息
         except Exception as e:
-            logger.error(f"数据库连接失败: {e}")
+            logger.error(f"数据库连接失败 - URI: {self.config.uri}, 错误: {e}")  # 增强错误日志
             raise DatabaseConnectionError(f"数据库连接失败: {e}") from e
 
     def _detect_dialect(self) -> DatabaseDialect:
@@ -88,10 +93,10 @@ class SQLDatabaseManager:
         """获取可用表名列表"""
         try:
             tables = self.db.get_usable_table_names()
-            logger.debug(f"找到 {len(tables)} 个表: {tables}")
+            logger.debug(f"获取表名成功 - 共 {len(tables)} 个表: {tables}")  # 优化日志格式
             return tables
         except Exception as e:
-            logger.error(f"获取表名失败: {e}")
+            logger.error(f"获取表名失败 - 错误详情: {e}")  # 统一错误日志格式
             raise QueryExecutionError(f"获取表名失败: {e}") from e
 
     def execute_query(self, query: str) -> str:
@@ -104,12 +109,12 @@ class SQLDatabaseManager:
             查询结果字符串
         """
         try:
-            logger.debug(f"执行查询: {query}")
+            logger.debug(f"开始执行SQL查询: {query[:100]}...")  # 限制日志中查询长度
             result = self.db.run(query)
-            logger.debug(f"查询执行成功，结果长度: {len(str(result))}")
+            logger.debug(f"SQL查询执行成功 - 结果长度: {len(str(result))} 字符")  # 优化成功日志
             return result
         except Exception as e:
-            logger.error(f"查询执行失败: {e}")
+            logger.error(f"SQL查询执行失败 - 查询: {query[:50]}..., 错误: {e}")  # 增强错误日志
             raise QueryExecutionError(f"查询执行失败: {e}") from e
 
     def get_table_schema(self, table_names: Optional[List[str]] = None) -> str:

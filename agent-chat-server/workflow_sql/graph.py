@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体图实现模块
 
 本模块提供SQL智能体的主要图实现，整合所有组件为一个可工作的LangGraph应用。
@@ -6,18 +7,20 @@
 import logging
 import os
 
-from langchain.chat_models import init_chat_model
+# 修复相对导入问题，使用绝对导入
+import sys
+import os
 
-try:
-    # 当作为模块导入时使用相对导入
-    from .config import get_config
-    from .graph_builder import create_sql_agent_graph
-    from .logging_config import setup_logging
-except ImportError:
-    # 当直接运行时使用绝对导入
-    from config import get_config
-    from graph_builder import create_sql_agent_graph
-    from logging_config import setup_logging
+# 添加当前目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+# 使用绝对导入
+from workflow_sql.config import get_config  # 配置获取函数
+from workflow_sql.graph_builder import create_sql_agent_graph  # 图构建器
+from workflow_sql.logging_config import setup_logging  # 日志配置
 
 
 # 初始化配置
@@ -31,21 +34,93 @@ logger = logging.getLogger(__name__)
 if config.llm.api_key:
     os.environ[f"{config.llm.provider.upper()}_API_KEY"] = config.llm.api_key
 
+# 真实的模型初始化函数
+def init_chat_model(model_string: str):
+    """初始化聊天模型"""
+    try:
+        # 尝试导入并初始化模型
+        from langchain_openai import ChatOpenAI
+
+        # 解析模型字符串
+        provider, model = model_string.split(":", 1)
+
+        if provider.lower() == "deepseek":
+            # 使用DeepSeek API
+            return ChatOpenAI(
+                model=model,
+                api_key=config.llm.api_key,
+                base_url="https://api.deepseek.com",
+                temperature=config.llm.temperature,
+                max_tokens=config.llm.max_tokens
+            )
+        else:
+            logger.warning(f"不支持的模型提供商: {provider}")
+            return None
+
+    except ImportError:
+        logger.warning("langchain_openai 未安装，使用模拟模型")
+        # 创建一个模拟的LLM对象
+        class MockLLM:
+            def __init__(self):
+                self.model_name = model_string
+
+            def invoke(self, messages):
+                return "模拟响应：请安装 langchain_openai 以使用真实模型"
+
+        return MockLLM()
+    except Exception as e:
+        logger.error(f"模型初始化失败: {e}")
+        return None
+
 # 初始化语言模型
 try:
     llm = init_chat_model(f"{config.llm.provider}:{config.llm.model}")
-    logger.info(f"初始化语言模型: {config.llm.provider}:{config.llm.model}")
+    if llm:
+        logger.info(f"语言模型初始化成功: {config.llm.provider}:{config.llm.model}")
+    else:
+        logger.warning("语言模型初始化失败，将使用模拟模型")
 except Exception as e:
     logger.error(f"语言模型初始化失败: {e}")
-    raise
+    llm = None
 
 # 创建图
 try:
-    graph = create_sql_agent_graph(config, llm)
-    logger.info("SQL智能体图创建成功")
+    if llm is not None:
+        graph = create_sql_agent_graph(config, llm)
+        logger.info("SQL智能体图创建成功")
+    else:
+        logger.error("无法创建图：语言模型未初始化")
+        # 创建一个简单的错误图
+        from langgraph.graph import StateGraph, MessagesState, START, END
+        from langchain_core.messages import AIMessage
+
+        def error_node(state):
+            response = AIMessage(content="SQL工作流暂时不可用，请检查模型配置")
+            return {"messages": state.get("messages", []) + [response]}
+
+        workflow = StateGraph(MessagesState)
+        workflow.add_node("error", error_node)
+        workflow.set_entry_point("error")
+        workflow.add_edge("error", END)
+        graph = workflow.compile()
+        logger.info("创建了错误处理图")
+
 except Exception as e:
     logger.error(f"图创建失败: {e}")
-    raise
+    # 最后的备用方案
+    from langgraph.graph import StateGraph, MessagesState, START, END
+    from langchain_core.messages import AIMessage
+
+    def fallback_node(state):
+        response = AIMessage(content=f"SQL工作流创建失败: {str(e)}")
+        return {"messages": state.get("messages", []) + [response]}
+
+    workflow = StateGraph(MessagesState)
+    workflow.add_node("fallback", fallback_node)
+    workflow.set_entry_point("fallback")
+    workflow.add_edge("fallback", END)
+    graph = workflow.compile()
+    logger.info("创建了备用图")
 
 
 # 导出图供LangGraph CLI使用

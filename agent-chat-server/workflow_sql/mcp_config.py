@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """MCP服务器配置模块
 
 本模块提供MCP (Model Context Protocol) 服务器的配置管理功能。

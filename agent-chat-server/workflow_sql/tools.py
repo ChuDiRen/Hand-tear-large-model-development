@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体工具管理模块
 
 本模块提供SQL数据库工具和其他实用程序的管理功能。
@@ -11,14 +12,18 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.tools import BaseTool
 from langgraph.prebuilt import ToolNode
 
-try:
-    # 当作为模块导入时使用相对导入
-    from .database import SQLDatabaseManager
-    from .agent_types import ToolNotFoundError
-except ImportError:
-    # 当直接运行时使用绝对导入
-    from database import SQLDatabaseManager
-    from agent_types import ToolNotFoundError
+# 修复相对导入问题，使用绝对导入
+import sys
+import os
+
+# 添加当前目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from workflow_sql.database import SQLDatabaseManager  # 数据库管理器
+from workflow_sql.agent_types import ToolNotFoundError  # 工具异常类型
 
 
 logger = logging.getLogger(__name__)
@@ -50,15 +55,16 @@ class SQLToolManager:
     def _create_toolkit(self) -> None:
         """创建SQL数据库工具包"""
         try:
-            logger.info("创建SQL数据库工具包")
+            logger.info("开始创建SQL数据库工具包...")  # 优化开始日志
             self._toolkit = SQLDatabaseToolkit(
                 db=self.db_manager.db,
                 llm=self.llm
             )
             self._tools = self._toolkit.get_tools()
-            logger.info(f"创建了包含 {len(self._tools)} 个工具的工具包")
+            tool_names = [tool.name for tool in self._tools]  # 获取工具名称列表
+            logger.info(f"SQL工具包创建成功 - 包含 {len(self._tools)} 个工具: {tool_names}")  # 增强成功日志
         except Exception as e:
-            logger.error(f"创建SQL工具包失败: {e}")
+            logger.error(f"SQL工具包创建失败 - 错误详情: {e}")  # 统一错误日志格式
             raise ToolNotFoundError(f"创建SQL工具包失败: {e}") from e
 
     def get_all_tools(self) -> List[BaseTool]:
@@ -100,9 +106,11 @@ class SQLToolManager:
         tool = self.get_tool_by_name(name)
         if tool is None:
             available_tools = [t.name for t in self.get_all_tools()]
+            logger.error(f"工具查找失败 - 目标工具: '{name}', 可用工具: {available_tools}")  # 添加错误日志
             raise ToolNotFoundError(
                 f"未找到必需工具 '{name}'。可用工具: {available_tools}"
             )
+        logger.debug(f"工具获取成功 - 工具名称: '{name}'")  # 添加成功日志
         return tool
 
     def get_schema_tool(self) -> BaseTool:

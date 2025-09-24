@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体图节点实现模块
 
 本模块包含SQL智能体工作流中使用的所有图节点的实现。
@@ -10,22 +11,22 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langgraph.graph import END, MessagesState
 
-try:
-    # 当作为模块导入时使用相对导入
-    from .database import SQLDatabaseManager
-    from .tools import SQLToolManager
-    from .agent_types import BaseNode
-    from .mcp_config import mcp_config
-    from .async_chart_generator import run_async_chart_generation
-    from .logging_config import get_node_logger, log_node_start, log_node_complete, log_node_error
-except ImportError:
-    # 当直接运行时使用绝对导入
-    from database import SQLDatabaseManager
-    from tools import SQLToolManager
-    from agent_types import BaseNode
-    from mcp_config import mcp_config
-    from async_chart_generator import run_async_chart_generation
-    from logging_config import get_node_logger, log_node_start, log_node_complete, log_node_error
+# 修复相对导入问题，使用绝对导入
+import sys
+import os
+
+# 添加当前目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from workflow_sql.database import SQLDatabaseManager  # 数据库管理器
+from workflow_sql.tools import SQLToolManager  # SQL工具管理器
+from workflow_sql.agent_types import BaseNode  # 基础节点类
+from workflow_sql.mcp_config import mcp_config  # MCP配置
+from workflow_sql.async_chart_generator import run_async_chart_generation  # 异步图表生成
+from workflow_sql.logging_config import get_node_logger, log_node_start, log_node_complete, log_node_error  # 日志工具
 
 
 # 创建不同颜色的日志记录器
@@ -84,7 +85,7 @@ class ListTablesNode(BaseNode):
 
         except Exception as e:
             log_node_error(list_tables_logger, "ListTables", str(e))
-            error_message = AIMessage(f"列表表错误: {str(e)}")
+            error_message = AIMessage(f"获取表列表失败: {str(e)}")  # 优化错误消息
             return {"messages": [error_message]}
 
 
@@ -162,8 +163,8 @@ class GetSchemaNode(BaseNode):
             return {"messages": [tool_call_message, tool_message, response]}
 
         except Exception as e:
-            logger.error(f"获取结构节点错误: {e}")
-            error_message = AIMessage(f"检索结构错误: {str(e)}")
+            logger.error(f"获取数据库结构失败 - 错误详情: {e}")  # 优化错误日志
+            error_message = AIMessage(f"获取数据库结构失败: {str(e)}")  # 优化错误消息
             return {"messages": [error_message]}
 
 

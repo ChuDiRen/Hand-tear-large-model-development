@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """MCP客户端管理模块
 
 本模块提供MCP (Model Context Protocol) 客户端的管理功能。

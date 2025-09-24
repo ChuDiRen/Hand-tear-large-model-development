@@ -1,13 +1,18 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体配置管理模块
 
 本模块提供集中化的配置管理，支持环境变量和默认值。
 """
 
 import os
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
 from dotenv import load_dotenv
+
+# 创建logger
+logger = logging.getLogger(__name__)
 
 # 获取当前文件所在目录的绝对路径
 _CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +35,7 @@ class LLMConfig:
 
     provider: str = "deepseek"                                    # 模型提供商
     model: str = "deepseek-chat"                                 # 模型名称
-    api_key: str = "sk-ee4931a686854414ae08daabb1688843"        # API密钥
+    api_key: str = ""                                            # API密钥（从环境变量获取）
     temperature: float = 0.0                                     # 温度参数
     max_tokens: Optional[int] = None                             # 最大token数
 
@@ -59,7 +64,26 @@ class AgentConfig:
             从环境变量加载的AgentConfig实例
         """
         # 尝试加载.env文件
-        load_dotenv()
+        try:
+            # 查找.env文件的可能位置
+            env_paths = [
+                os.path.join(os.path.dirname(__file__), ".env"),  # workflow_sql/.env
+                os.path.join(os.path.dirname(__file__), "..", ".env"),  # agent-chat-server/.env
+                ".env"  # 当前目录
+            ]
+
+            for env_path in env_paths:
+                if os.path.exists(env_path):
+                    load_dotenv(env_path)
+                    logger.info(f"✅ 加载环境变量文件: {env_path}")
+                    break
+            else:
+                logger.warning("⚠️ 未找到.env文件，使用系统环境变量")
+                load_dotenv()  # 尝试默认加载
+
+        except Exception as e:
+            logger.warning(f"⚠️ 加载.env文件失败: {e}")
+            load_dotenv()  # 尝试默认加载
 
         # 数据库配置
         db_config = DatabaseConfig(
@@ -69,10 +93,14 @@ class AgentConfig:
         )
 
         # 语言模型配置
+        api_key = os.getenv("DEEPSEEK_API_KEY")  # 从环境变量获取API密钥
+        if not api_key:
+            raise ValueError("DEEPSEEK_API_KEY环境变量未设置，请在.env文件或系统环境变量中配置")
+
         llm_config = LLMConfig(
             provider=os.getenv("LLM_PROVIDER", "deepseek"),
             model=os.getenv("LLM_MODEL", "deepseek-chat"),
-            api_key=os.getenv("DEEPSEEK_API_KEY", "sk-ee4931a686854414ae08daabb1688843"),
+            api_key=api_key,
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.0")),
             max_tokens=int(os.getenv("LLM_MAX_TOKENS")) if os.getenv("LLM_MAX_TOKENS") else None
         )

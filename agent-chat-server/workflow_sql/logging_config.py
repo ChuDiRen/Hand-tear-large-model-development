@@ -1,3 +1,4 @@
+# Copyright (c) 2025 左岚. All rights reserved.
 """SQL智能体日志配置模块
 
 本模块提供集中化的日志配置，支持控制台日志输出和颜色区分。
@@ -7,12 +8,17 @@ import logging
 import sys
 import os
 
-try:
-    # 当作为模块导入时使用相对导入
-    from .config import LoggingConfig
-except ImportError:
-    # 当直接运行时使用绝对导入
-    from config import LoggingConfig
+# 修复相对导入问题，使用绝对导入
+import sys
+import os
+
+# 添加当前目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from workflow_sql.config import LoggingConfig  # 日志配置类
 
 
 class ColoredFormatter(logging.Formatter):
