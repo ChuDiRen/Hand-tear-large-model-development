@@ -56,6 +56,12 @@ class AsyncChartGenerator:
 - 确保图表标题、轴标签清晰
 - 如果数据点过多，考虑只显示前几名
 - 使用合适的颜色和样式
+
+**关键约束：**
+- 只生成一个图表，绝对不要生成重复的图表
+- 不要在同一个图表中重复显示相同的数据
+- 确保数据去重，避免重复的数据点或类别
+- 生成的图表应该是单一、清晰、不重复的可视化
         """.strip()
     
     def _determine_chart_type(self, query_result: str, user_question: str) -> str:
@@ -129,19 +135,29 @@ class AsyncChartGenerator:
                 "content": self._get_system_prompt(),
             }
             
+            # 预处理数据，确保去重
+            processed_data = self._preprocess_chart_data(query_result)
+
             user_message = {
                 "role": "user",
                 "content": f"""
 用户问题：{user_question}
 
-查询结果数据：
-{query_result}
+查询结果数据（已去重处理）：
+{processed_data}
 
 答案内容：
 {answer_content}
 
-请根据以上数据生成一个{chart_type}图表。数据格式为Python列表，每个元素是一个元组。
-请使用可用的图表工具创建可视化图表。
+请根据以上数据生成一个{chart_type}图表。
+
+**重要要求：**
+1. 只生成一个图表，不要生成重复的图表
+2. 确保数据已经去重，不要重复显示相同的数据点
+3. 图表应该清晰、简洁，避免任何形式的重复
+4. 使用可用的图表工具创建单一的可视化图表
+
+数据格式为Python列表，每个元素是一个元组。请严格按照要求生成唯一的图表。
                 """.strip()
             }
             
@@ -210,6 +226,8 @@ class AsyncChartGenerator:
             if chart_url:
                 # 验证图表链接是否有效
                 if self._validate_chart_url(chart_url):
+                    # 添加去重验证日志
+                    logger.info(f"图表生成成功，URL: {chart_url[:100]}...")
                     chart_result = f"图表生成完成！\n\n**图表链接：** {chart_url}\n\n## 图表说明：\n{self._generate_chart_description()}"
                 else:
                     logger.error("图表链接验证失败")
@@ -222,7 +240,7 @@ class AsyncChartGenerator:
             total_time = time.time() - start_time
             logger.info(f"异步图表生成完成，总耗时: {total_time:.2f}秒")
             return chart_result
-            
+
         except Exception as e:
             logger.error(f"异步图表生成错误: {e}")
             return f"图表生成错误: {str(e)}"
@@ -291,28 +309,113 @@ class AsyncChartGenerator:
         """生成图表描述"""
         return """
 **图表特点：**
-- 图表类型：柱状图，适合比较不同类别的数值
-- 数据展示：清晰显示各音乐类型的平均时长
-- 视觉效果：使用不同颜色区分各个类型
+- 图表类型：数据可视化图表，根据数据特点自动选择最适合的类型
+- 数据展示：清晰显示查询结果的关键信息
+- 视觉效果：使用不同颜色区分各个类别
 - 交互功能：支持鼠标悬停查看详细数据
+- 数据处理：已进行去重处理，确保数据的唯一性和准确性
 
 **使用说明：**
-点击上方链接即可查看完整的交互式图表。
+点击上方链接即可查看完整的交互式图表。图表已经过优化处理，避免重复数据显示。
         """.strip()
 
+    def _preprocess_chart_data(self, query_result: str) -> str:
+        """预处理图表数据，确保去重和格式化
+
+        Args:
+            query_result: 原始查询结果
+
+        Returns:
+            处理后的数据字符串
+        """
+        try:
+            import ast
+            import re
+
+            # 尝试解析查询结果
+            if query_result.strip().startswith('['):
+                # 如果是列表格式，直接解析
+                try:
+                    data = ast.literal_eval(query_result)
+                except:
+                    # 如果解析失败，使用正则提取
+                    data = self._extract_data_from_text(query_result)
+            else:
+                # 从文本中提取数据
+                data = self._extract_data_from_text(query_result)
+
+            if not data:
+                return query_result
+
+            # 数据去重处理
+            seen = set()
+            unique_data = []
+
+            for item in data:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    # 使用第一个字段作为去重键（通常是类别名称）
+                    key = str(item[0]).strip().lower()
+                    if key not in seen:
+                        seen.add(key)
+                        unique_data.append(item)
+                elif isinstance(item, dict):
+                    # 处理字典格式
+                    key_field = list(item.keys())[0] if item else None
+                    if key_field:
+                        key = str(item[key_field]).strip().lower()
+                        if key not in seen:
+                            seen.add(key)
+                            unique_data.append(item)
+
+            # 限制数据点数量，避免图表过于复杂
+            if len(unique_data) > 10:
+                unique_data = unique_data[:10]
+                logger.info(f"数据点过多，已限制为前10个: {len(unique_data)}")
+
+            logger.info(f"数据预处理完成: 原始{len(data)}条 -> 去重后{len(unique_data)}条")
+            return str(unique_data)
+
+        except Exception as e:
+            logger.warning(f"数据预处理失败，使用原始数据: {e}")
+            return query_result
+
+    def _extract_data_from_text(self, text: str) -> list:
+        """从文本中提取数据"""
+        try:
+            import re
+
+            # 尝试匹配元组格式: ('name', value)
+            tuple_pattern = r"\('([^']+)',\s*([0-9.]+)\)"
+            matches = re.findall(tuple_pattern, text)
+
+            if matches:
+                return [(name, float(value)) for name, value in matches]
+
+            # 尝试匹配其他格式
+            # 例如: name: value
+            colon_pattern = r"([^:]+):\s*([0-9.]+)"
+            matches = re.findall(colon_pattern, text)
+
+            if matches:
+                return [(name.strip(), float(value)) for name, value in matches]
+
+            return []
+
+        except Exception as e:
+            logger.warning(f"从文本提取数据失败: {e}")
+            return []
 
 
-
-def run_async_chart_generation(llm, user_question: str, query_result: str, 
+def run_async_chart_generation(llm, user_question: str, query_result: str,
                               answer_content: str) -> str:
     """运行异步图表生成（同步包装器）
-    
+
     Args:
         llm: 语言模型实例
         user_question: 用户问题
         query_result: 查询结果
         answer_content: 答案内容
-        
+
     Returns:
         图表生成结果消息
     """
@@ -323,15 +426,15 @@ def run_async_chart_generation(llm, user_question: str, query_result: str,
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         # 创建图表生成器并运行
         generator = AsyncChartGenerator(llm)
         result = loop.run_until_complete(
             generator.generate_chart(user_question, query_result, answer_content)
         )
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"异步图表生成包装器错误: {e}")
         return f"图表生成失败: {str(e)}"
